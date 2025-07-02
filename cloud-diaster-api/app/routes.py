@@ -1,30 +1,210 @@
-#Api Routes
-#get post incidents resources with async use model
-from app.models import Incident, ResourceStatus
 from fastapi import APIRouter, HTTPException
 from typing import List
 
+from app.models import (
+    Incident, RescueTeam, Shelter, SupplyStock,
+    UpdateIncident, UpdateRescueTeam, UpdateShelter, UpdateSupplyStock
+)
+
 router = APIRouter()
+                            #update doesnt work
+incidents = {}
+rescue_teams = {}
+shelters = {}
+supply_stocks = {}
+# For now, in-memory storage; will migrate to DynamoDB later
 
-incidents = []
-resources = []
-# memory for now we set up dynamodb later
 
-@router.get("/incidents", response_model=List[Incident]) #Get list of incident objects
-async def get_incidents():
-    return incidents
+# --- Incident Endpoints ---
 
-@router.post("/incidents", response_model=Incident) #create incident model object
-async def create_incident(incident: Incident): #Accepting a new incident object
-    incidents.append(incident)
+@router.get("/all-incidents", response_model=List[Incident])
+async def get_all_incidents():
+    return list(incidents.values())
+
+@router.get("/get-incident-id/{id}", response_model=Incident)
+async def get_incident_by_id(id: int):
+    if id not in incidents:
+        raise HTTPException(status_code=404, detail=f"Incident with id {id} not found")
+    return incidents[id]
+
+@router.post("/create-incidents", response_model=Incident)
+async def create_incident(incident: Incident):
+    if incident.id in incidents:
+        raise HTTPException(status_code=400, detail=f"Incident already assigned to id {incident.id}")
+    incidents[incident.id] = incident
     return incident
 
-@router.get("/resources", response_model=List[ResourceStatus])
-async def get_resources():          #using async to let app handle tasks while others are in wait time.
-    return resources
+@router.delete("/delete-incident/{id}")
+async def delete_incident(id: int):
+    if id not in incidents:
+        raise HTTPException(status_code=404, detail="No incident has been assigned with this ID")
+    incidents.pop(id)
+    return {"message": f"Incident with ID {id} deleted successfully"}
 
-@router.post("/resources", response_model=ResourceStatus)
-async def create_resource(resource: ResourceStatus):
-    resources.append(resource)
-    return resource
+@router.put("/update-incident-id/{id}", response_model=Incident)
+async def update_incident(id: int, incident_update: UpdateIncident):
+    if id not in incidents:
+        raise HTTPException(status_code=404, detail=f"No incident assigned with ID {id}")
 
+    existing_incident = incidents[id]
+
+    # Update only provided fields
+    if incident_update.title is not None:
+        existing_incident.title = incident_update.title
+    if incident_update.location is not None:
+        existing_incident.location = incident_update.location
+    if incident_update.severity is not None:
+        existing_incident.severity = incident_update.severity
+    if incident_update.description is not None:
+        existing_incident.description = incident_update.description
+    if incident_update.latitude is not None:
+        existing_incident.latitude = incident_update.latitude
+    if incident_update.longitude is not None:
+        existing_incident.longitude = incident_update.longitude
+    if incident_update.status is not None:
+        existing_incident.status = incident_update.status
+    if incident_update.reported_at is not None:
+        existing_incident.reported_at = incident_update.reported_at
+
+    incidents[id] = existing_incident
+    return existing_incident
+
+
+# --- RescueTeam Endpoints ---
+
+@router.get("/all-rescue-teams", response_model=List[RescueTeam])
+async def get_all_rescue_teams():
+    return list(rescue_teams.values())
+
+@router.get("/get-rescue-team-id/{id}", response_model=RescueTeam)
+async def get_rescue_team_by_id(id: int):
+    if id not in rescue_teams:
+        raise HTTPException(status_code=404, detail=f"Rescue team with id {id} not found")
+    return rescue_teams[id]
+
+@router.post("/create-rescue-teams", response_model=RescueTeam)
+async def create_rescue_team(team: RescueTeam):
+    if team.id in rescue_teams:
+        raise HTTPException(status_code=400, detail=f"Rescue team already assigned to id {team.id}")
+    rescue_teams[team.id] = team
+    return team
+
+@router.delete("/delete-rescue-team/{id}")
+async def delete_rescue_team(id: int):
+    if id not in rescue_teams:
+        raise HTTPException(status_code=404, detail="No rescue team assigned with this ID")
+    rescue_teams.pop(id)
+    return {"message": f"Rescue team with ID {id} deleted successfully"}
+
+@router.put("/update-rescue-team-id/{id}", response_model=RescueTeam)
+async def update_rescue_team(id: int, team_update: UpdateRescueTeam):
+    if id not in rescue_teams:
+        raise HTTPException(status_code=404, detail=f"No rescue team assigned with ID {id}")
+
+    existing_team = rescue_teams[id]
+
+    if team_update.name is not None:
+        existing_team.name = team_update.name
+    if team_update.resource_type is not None:
+        existing_team.resource_type = team_update.resource_type
+    if team_update.available is not None:
+        existing_team.available = team_update.available
+    if team_update.last_updated is not None:
+        existing_team.last_updated = team_update.last_updated
+    if team_update.location is not None:
+        existing_team.location = team_update.location
+
+    rescue_teams[id] = existing_team
+    return existing_team
+
+
+# --- Shelter Endpoints ---
+
+@router.get("/all-shelters", response_model=List[Shelter])
+async def get_all_shelters():
+    return list(shelters.values())
+
+@router.get("/get-shelter-id/{id}", response_model=Shelter)
+async def get_shelter_by_id(id: int):
+    if id not in shelters:
+        raise HTTPException(status_code=404, detail=f"Shelter with id {id} not found")
+    return shelters[id]
+
+@router.post("/create-shelters", response_model=Shelter)
+async def create_shelter(shelter: Shelter):
+    if shelter.id in shelters:
+        raise HTTPException(status_code=400, detail=f"Shelter already assigned to id {shelter.id}")
+    shelters[shelter.id] = shelter
+    return shelter
+
+@router.delete("/delete-shelter/{id}")
+async def delete_shelter(id: int):
+    if id not in shelters:
+        raise HTTPException(status_code=404, detail="No shelter assigned with this ID")
+    shelters.pop(id)
+    return {"message": f"Shelter with ID {id} deleted successfully"}
+
+@router.put("/update-shelter-id/{id}", response_model=Shelter)
+async def update_shelter(id: int, shelter_update: UpdateShelter):
+    if id not in shelters:
+        raise HTTPException(status_code=404, detail=f"No shelter assigned with ID {id}")
+
+    existing_shelter = shelters[id]
+
+    if shelter_update.name is not None:
+        existing_shelter.name = shelter_update.name
+    if shelter_update.location is not None:
+        existing_shelter.location = shelter_update.location
+    if shelter_update.capacity is not None:
+        existing_shelter.capacity = shelter_update.capacity
+    if shelter_update.current_occupied is not None:
+        existing_shelter.current_occupied = shelter_update.current_occupied
+    if shelter_update.status is not None:
+        existing_shelter.status = shelter_update.status
+
+    shelters[id] = existing_shelter
+    return existing_shelter
+
+
+# --- SupplyStock Endpoints ---
+
+@router.get("/all-supply-stocks", response_model=List[SupplyStock])
+async def get_all_supply_stocks():
+    return list(supply_stocks.values())
+
+@router.get("/get-supply-stock-id/{id}", response_model=SupplyStock)
+async def get_supply_stock_by_id(id: int):
+    if id not in supply_stocks:
+        raise HTTPException(status_code=404, detail=f"Supply stock with id {id} not found")
+    return supply_stocks[id]
+
+@router.post("/create-supply-stocks", response_model=SupplyStock)
+async def create_supply_stock(stock: SupplyStock):
+    if stock.id in supply_stocks:
+        raise HTTPException(status_code=400, detail=f"Supply stock already assigned to id {stock.id}")
+    supply_stocks[stock.id] = stock
+    return stock
+
+@router.delete("/delete-supply-stock/{id}")
+async def delete_supply_stock(id: int):
+    if id not in supply_stocks:
+        raise HTTPException(status_code=404, detail="No supply stock assigned with this ID")
+    supply_stocks.pop(id)
+    return {"message": f"Supply stock with ID {id} deleted successfully"}
+
+@router.put("/update-supply-stock-id/{id}", response_model=SupplyStock)
+async def update_supply_stock(id: int, stock_update: UpdateSupplyStock):
+    if id not in supply_stocks:
+        raise HTTPException(status_code=404, detail=f"No supply stock assigned with ID {id}")
+
+    existing_stock = supply_stocks[id]
+
+    if stock_update.name is not None:
+        existing_stock.name = stock_update.name
+    if stock_update.quantity is not None:
+        existing_stock.quantity = stock_update.quantity
+    if stock_update.location is not None:
+        existing_stock.location = stock_update.location
+
+    supply_stocks[id] = existing_stock
+    return existing_stock
