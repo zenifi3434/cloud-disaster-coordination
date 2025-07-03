@@ -1,3 +1,4 @@
+
 from pydantic import BaseModel
 from typing import Optional
 
@@ -7,8 +8,8 @@ class Incident(BaseModel):
     location: str
     severity: int
     description: Optional[str] = None  # fixed typo
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: float
+    longitude: float
     status: Optional[str] = None
     reported_at: str
 
@@ -19,6 +20,8 @@ class RescueTeam(BaseModel):
     available: bool
     last_updated: int  # consider using datetime instead of int timestamp?
     location: str
+    latitude: float
+    longitude: float
 
 class Shelter(BaseModel):
     id: int
@@ -27,6 +30,8 @@ class Shelter(BaseModel):
     capacity: int
     current_occupied: int
     status: str
+    latitude: float
+    longitude: float
 
 class SupplyStock(BaseModel):
     id: int

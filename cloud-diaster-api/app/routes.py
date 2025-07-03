@@ -1,5 +1,7 @@
+
 from fastapi import APIRouter, HTTPException
 from typing import List
+import math
 
 from app.models import (
     Incident, RescueTeam, Shelter, SupplyStock,
@@ -13,6 +15,19 @@ rescue_teams = {}
 shelters = {}
 supply_stocks = {}
 # For now, in-memory storage; will migrate to DynamoDB later
+
+def distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371  # Earth radius in kilometers
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = math.sin(delta_phi / 2) ** 2 + \
+        math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
 
 
 # --- Incident Endpoints ---
@@ -70,6 +85,20 @@ async def update_incident(id: int, incident_update: UpdateIncident):
     return existing_incident
 
 
+@router.get("/locations/incidents")
+async def get_all_incident_locations():
+    # Return list of dicts with id + location info
+    return [{"id": inc.id, "latitude": inc.latitude, "longitude": inc.longitude} for inc in incidents.values()]
+
+@router.get("/locations/incidents/{id}")
+async def get_incident_location_by_id(id: int):
+    if id not in incidents:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    inc = incidents[id]
+    return {"id": inc.id, "latitude": inc.latitude, "longitude": inc.longitude}
+
+
+
 # --- RescueTeam Endpoints ---
 
 @router.get("/all-rescue-teams", response_model=List[RescueTeam])
@@ -116,6 +145,50 @@ async def update_rescue_team(id: int, team_update: UpdateRescueTeam):
 
     rescue_teams[id] = existing_team
     return existing_team
+
+
+
+@router.get("/locations/rescue_team")
+async def get_all_rescue_team_location():
+    # Return list of dicts with id + location info
+    return [{"id": rescue_team.id, "latitude": rescue_team.latitude, "longitude": rescue_team.longitude} for rescue_team in rescue_teams.values()]
+
+@router.get("/locations/rescue_team/{id}")
+async def get_incident_location_by_id(id: int):
+    if id not in rescue_teams:
+        raise HTTPException(status_code=404, detail="Team not found")
+    rescue_team = rescue_teams[id]
+    return {"id": rescue_team.id, "latitude": rescue_team.latitude, "longitude": rescue_team.longitude}
+
+
+@router.get("/nearest-rescue-team/{incident_id}", response_model=RescueTeam)
+async def get_nearest_rescue_team(incident_id: int):
+    if incident_id not in incidents:
+        raise HTTPException(status_code=404, detail=f"Incident with id {incident_id} not found")
+
+    incident = incidents[incident_id]
+
+    if not rescue_teams:
+        raise HTTPException(status_code=404, detail="No rescue teams available")
+
+    nearest_team = min(
+        rescue_teams.values(),
+        key=lambda team: distance(
+            incident.latitude,
+            incident.longitude,
+            team.latitude,
+            team.longitude
+        ),
+        default=None,
+    )
+
+    if nearest_team is None:
+        raise HTTPException(status_code=404, detail="No rescue teams found")
+
+    return nearest_team
+
+
+
 
 
 # --- Shelter Endpoints ---
@@ -166,6 +239,49 @@ async def update_shelter(id: int, shelter_update: UpdateShelter):
     return existing_shelter
 
 
+
+
+@router.get("/locations/shelter")
+async def get_all_shelters_location():
+    # Return list of dicts with id + location info
+    return [{"id": shelter.id, "latitude": shelter.latitude, "longitude": shelter.longitude} for shelter in shelters.values()]
+
+@router.get("/locations/shelter/{id}")
+async def get_shelter_location_id(id: int):
+    if id not in shelters:
+        raise HTTPException(status_code=404, detail="Shelter not found")
+    shelter = shelters[id]
+    return {"id": shelter.id, "latitude": shelter.latitude, "longitude": shelter.longitude}
+
+
+
+@router.get("/nearest-shelter/{incident_id}", response_model=Shelter)
+async def get_nearest_shelter(incident_id: int):
+    if incident_id not in incidents:
+        raise HTTPException(status_code=404, detail=f"Incident with id {incident_id} not found")
+
+    incident = incidents[incident_id]
+
+    if not shelters:
+        raise HTTPException(status_code=404, detail="No shelters available")
+
+    nearest_shelter = min(
+        shelters.values(),
+        key=lambda shelter: distance(
+            incident.latitude,
+            incident.longitude,
+            shelter.latitude,
+            shelter.longitude
+        ),
+        default=None,
+    )
+
+    if nearest_shelter is None:
+        raise HTTPException(status_code=404, detail="No shelters found")
+
+    return nearest_shelter
+
+
 # --- SupplyStock Endpoints ---
 
 @router.get("/all-supply-stocks", response_model=List[SupplyStock])
@@ -208,3 +324,5 @@ async def update_supply_stock(id: int, stock_update: UpdateSupplyStock):
 
     supply_stocks[id] = existing_stock
     return existing_stock
+
+
