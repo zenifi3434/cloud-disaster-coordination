@@ -6,6 +6,8 @@ app = FastAPI()
 
 app.include_router(router)
 app.include_router(websocket_router)
+
+
 @app.get("/")
 async def root():
     return {"status": "Diaster Response API is live"}
